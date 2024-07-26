@@ -6,7 +6,7 @@ import { useGetCallById } from '@/hooks/useGetCallById'
 import { useUser } from '@clerk/nextjs'
 import { useStreamVideoClient } from '@stream-io/video-react-sdk'
 import { useRouter } from 'next/navigation'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 
 const Table = ({title, description}:{title:string, description:string}) => (
   <div className='flex flex-col items-start gap-2 xl:flex-row'>
@@ -17,30 +17,40 @@ const Table = ({title, description}:{title:string, description:string}) => (
 
 const PersonalRoom = () => {
   const { user } = useUser();
-  const meetingId = user?.id;
-  const meetingLink = `${process.env.NEXT_PUBLIC_BASE_URL}/meeting/${meetingId}?personal=true`;
-  const toast = useToast();
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const { toast } = useToast(); // Destructure the toast function
   const client = useStreamVideoClient();
   const router = useRouter();
 
-  const { call } = useGetCallById(meetingId);
+  const { call } = useGetCallById(meetingId!);
+
+  useEffect(() => {
+    if (user?.id) {
+      setMeetingId(user.id);
+    }
+  }, [user]);
+
   const startRoom = async () => {
-    if(!client || !user) return;
+    if(!client || !user || !meetingId) return;
 
     if(!call){
-      const newCall = client.call('default', meetingId!)
+      const newCall = client.call('default', meetingId);
 
-      await call.getOrCreate({
+      await newCall.getOrCreate({
         data: {
           starts_at: new Date().toISOString()
         },
       }); 
     }
-      router.push(`/meeting/${meetingId}?personal=true`)
+    router.push(`/meeting/${meetingId}?personal=true`);
   }
 
+  if (!meetingId) return null;
+  
+  const meetingLink = `${process.env.NEXT_PUBLIC_BASE_URL}/meeting/${meetingId}?personal=true`;
+
   return (
-<section className='flex size-full flex-col gap-10 text-white'>
+    <section className='flex size-full flex-col gap-10 text-white'>
         <h1 className='text-3xl font-bold'>
             Personal Room
         </h1>
@@ -64,7 +74,8 @@ const PersonalRoom = () => {
             Copy Invitation
           </Button>
         </div>
-    </section>  )
+    </section>  
+  )
 }
 
 export default PersonalRoom
